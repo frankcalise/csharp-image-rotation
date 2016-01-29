@@ -83,7 +83,7 @@ namespace ExifImageRotation
                             var orientation = dir.Tags.Where(t => t.TagName.Equals("Orientation")).SingleOrDefault();
                             if (orientation != null)
                             {
-                                Console.WriteLine($"-- orientation = {orientation.}, dir name = {dir.Name}");
+                                Console.WriteLine($"-- orientation = {orientation.Description}, dir name = {dir.Name}");
                                 ExifRotateImageIfNeeded(file, outputPath);
                             }
                             else
@@ -127,6 +127,7 @@ namespace ExifImageRotation
 
         static void RotateImageIfNeeded(string file, string outputPath)
         {
+            Console.WriteLine("RotateImageIfNeeded");
             bool changes = false;
             var extension = Path.GetExtension(file);
             var outputFilename = Path.Combine(outputPath, $"{Path.GetFileName(file)}");
@@ -160,7 +161,45 @@ namespace ExifImageRotation
 
         static void ExifRotateImageIfNeeded(string file, string outputPath)
         {
-            
+            var extension = Path.GetExtension(file);
+            var outputFilename = Path.Combine(outputPath, $"{Path.GetFileName(file)}");
+
+            using (var image = Bitmap.FromFile(file))
+            {
+                var orientation = (int)image.GetPropertyItem(274).Value[0];
+                Console.WriteLine($"ExifRotateImageIfNeeded: orientation = {orientation}, outfilename = {outputFilename}");
+                switch (orientation)
+                {
+                    case 1:
+                        // No rotation required.
+                        break;
+                    case 2:
+                        image.RotateFlip(RotateFlipType.RotateNoneFlipX);
+                        break;
+                    case 3:
+                        image.RotateFlip(RotateFlipType.Rotate180FlipNone);
+                        break;
+                    case 4:
+                        image.RotateFlip(RotateFlipType.Rotate180FlipX);
+                        break;
+                    case 5:
+                        image.RotateFlip(RotateFlipType.Rotate90FlipX);
+                        break;
+                    case 6:
+                        image.RotateFlip(RotateFlipType.Rotate90FlipNone);
+                        break;
+                    case 7:
+                        image.RotateFlip(RotateFlipType.Rotate270FlipX);
+                        break;
+                    case 8:
+                        image.RotateFlip(RotateFlipType.Rotate270FlipNone);
+                        break;
+                }
+                // This EXIF data is now invalid and should be removed.
+                image.RemovePropertyItem(274);
+
+                image.Save(outputFilename, ImageFormat.Jpeg);
+            }
         }
     }
 }
