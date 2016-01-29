@@ -37,7 +37,7 @@ namespace ExifImageRotation
             if (!System.IO.Directory.Exists(outputPath))
                 System.IO.Directory.CreateDirectory(outputPath);
 
-            var files = System.IO.Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories)
+            var files = System.IO.Directory.EnumerateFiles(path, "*.*", SearchOption.TopDirectoryOnly)
                 .Where(
                     f => f.ToLower().EndsWith(".jpg") ||
                     f.ToLower().EndsWith(".jpeg") ||
@@ -55,14 +55,17 @@ namespace ExifImageRotation
                     pdf.LoadFromFile(file);
 
                     // Save first page of PDF
-                    var bmp = pdf.SaveAsImage(0);
-                    var outputFilename = Path.Combine(outputPath, $"{Path.GetFileNameWithoutExtension(file)}.jpg");
-                    Console.WriteLine($"Saving jpg to {outputFilename}");
-                    bmp.Save(outputFilename, ImageFormat.Jpeg);
+                    using (var bmp = pdf.SaveAsImage(0))
+                    {
+                        var outputFilename = Path.Combine(outputPath, $"{Path.GetFileNameWithoutExtension(file)}.jpg");
+                        Console.WriteLine($"Saving jpg to {outputFilename}");
+                        bmp.Save(outputFilename, ImageFormat.Jpeg);
+                    }
                 }
                 else if (lowerFile.EndsWith(".png"))
                 {
                     Console.WriteLine($"Current file: {file}");
+                    RotateImageIfNeeded(file, outputPath);
                 }
                 else if (lowerFile.EndsWith(".jpg") || lowerFile.EndsWith(".jpeg"))
                 {
@@ -80,16 +83,19 @@ namespace ExifImageRotation
                             var orientation = dir.Tags.Where(t => t.TagName.Equals("Orientation")).SingleOrDefault();
                             if (orientation != null)
                             {
-                                Console.WriteLine($"-- orientation = {orientation.Description}, dir name = {dir.Name}");
+                                Console.WriteLine($"-- orientation = {orientation.}, dir name = {dir.Name}");
+                                ExifRotateImageIfNeeded(file, outputPath);
                             }
                             else
                             {
                                 Console.WriteLine("-- orientation not found!");
+                                RotateImageIfNeeded(file, outputPath);
                             }
                         }
                         else
                         {
                             Console.WriteLine("-- orientation not found!");
+                            RotateImageIfNeeded(file, outputPath);
                         }
 
 
@@ -104,14 +110,57 @@ namespace ExifImageRotation
                         //foreach (var tag in dir.Tags)
 
                         //    Console.WriteLine($"{dir.Name} - {tag.TagName} = {tag.Description}");
-                        Console.WriteLine("---");
+                        
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine("UNABLE TO READ");
+                        //RotateImageIfNeeded(file, outputPath);
                     }
+                    
                 }
             }
+
+            
+            Console.WriteLine("---");
+        }
+
+        static void RotateImageIfNeeded(string file, string outputPath)
+        {
+            bool changes = false;
+            var extension = Path.GetExtension(file);
+            var outputFilename = Path.Combine(outputPath, $"{Path.GetFileName(file)}");
+            using (var image = Bitmap.FromFile(file))
+
+            {
+
+                ImageFormat format = ImageFormat.Jpeg;
+                if (extension.ToLower().Equals(".png"))
+                    format = ImageFormat.Png;
+
+
+                if (image.Width > image.Height)
+                {
+                    Console.WriteLine($"extension = {extension}, format = {format}");
+
+                    image.RotateFlip(RotateFlipType.Rotate270FlipNone);
+                    changes = true;
+                    image.Save(outputFilename, format);
+
+                }
+                else
+                {
+                    Console.WriteLine($"no rotation needed!! save to {outputFilename}");
+                }
+            }
+
+            if (!changes)
+                File.Copy(file, outputFilename, true);
+        }
+
+        static void ExifRotateImageIfNeeded(string file, string outputPath)
+        {
+            
         }
     }
 }
